@@ -1,0 +1,778 @@
+"use strict";
+
+// ========================================
+// FLIPZONE - SHOPPING WEBSITE DEMO
+// ========================================
+
+const PRODUCTS = [
+  {
+    id: 1, name: "Wireless Bluetooth Headphones",
+    category: "Electronics", price: 1499, oldPrice: 2999,
+    rating: 4.5, reviews: 124, badge: "BESTSELLER",
+    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 2, name: "Premium Smart Watch",
+    category: "Electronics", price: 2299, oldPrice: 3999,
+    rating: 4.4, reviews: 86, badge: "HOT DEAL",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 3, name: "Everyday Running Shoes",
+    category: "Fashion", price: 1799, oldPrice: 3499,
+    rating: 4.3, reviews: 210, badge: "POPULAR",
+    image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 4, name: "Classic Sunglasses",
+    category: "Fashion", price: 599, oldPrice: 999,
+    rating: 4.2, reviews: 67, badge: "GREAT VALUE",
+    image: "https://images.unsplash.com/photo-1511499767150-a48a237f0083?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 5, name: "Modern Ceramic Coffee Mug",
+    category: "Home", price: 299, oldPrice: 499,
+    rating: 4.6, reviews: 43, badge: "TRENDING",
+    image: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 6, name: "Indoor Decorative Plant",
+    category: "Home", price: 449, oldPrice: 799,
+    rating: 4.7, reviews: 92, badge: "FAVOURITE",
+    image: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 7, name: "Portable Bluetooth Speaker",
+    category: "Electronics", price: 1199, oldPrice: 1999,
+    rating: 4.5, reviews: 156, badge: "HOT DEAL",
+    image: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 8, name: "Skincare Essentials Set",
+    category: "Beauty", price: 699, oldPrice: 1099,
+    rating: 4.3, reviews: 71, badge: "VALUE PACK",
+    image: "https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 9, name: "Stainless Steel Water Bottle",
+    category: "Sports", price: 399, oldPrice: 699,
+    rating: 4.4, reviews: 58, badge: "BESTSELLER",
+    image: "https://images.unsplash.com/photo-1602143407151-7111542de6e8?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 10, name: "Comfortable Everyday Backpack",
+    category: "Fashion", price: 899, oldPrice: 1499,
+    rating: 4.5, reviews: 103, badge: "POPULAR",
+    image: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 11, name: "Smart LED Table Lamp",
+    category: "Appliances", price: 799, oldPrice: 1299,
+    rating: 4.1, reviews: 39, badge: "NEW",
+    image: "https://images.unsplash.com/photo-1507473885765-e6ed057f782c?auto=format&fit=crop&w=600&q=80"
+  },
+  {
+    id: 12, name: "Daily Grocery Essentials",
+    category: "Grocery", price: 499, oldPrice: 649,
+    rating: 4.2, reviews: 28, badge: "SAVINGS",
+    image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80"
+  }
+];
+
+// ========================================
+// APPLICATION STATE
+// ========================================
+
+let activeCategory = "All";
+let searchTerm = "";
+let sortMode = "featured";
+let wishlistOnly = false;
+
+function loadArray(key) {
+  try {
+    const data = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function loadCart() {
+  try {
+    const data = JSON.parse(localStorage.getItem("flipzone-cart") || "[]");
+
+    if (!Array.isArray(data)) return [];
+
+    return data
+      .filter(item =>
+        Number.isInteger(item.id) &&
+        PRODUCTS.some(product => product.id === item.id)
+      )
+      .map(item => ({
+        id: item.id,
+        quantity: Math.max(1, Math.min(99, Math.floor(Number(item.quantity) || 1)))
+      }));
+  } catch {
+    return [];
+  }
+}
+
+let cart = loadCart();
+
+let wishlist = loadArray("flipzone-wishlist")
+  .filter(id => Number.isInteger(id) && PRODUCTS.some(p => p.id === id));
+
+const $ = selector => document.querySelector(selector);
+
+const productGrid = $("#productGrid");
+const emptyState = $("#emptyState");
+const searchInput = $("#searchInput");
+const sortSelect = $("#sortSelect");
+const cartDrawer = $("#cartDrawer");
+const overlay = $("#overlay");
+const cartItems = $("#cartItems");
+const cartEmpty = $("#cartEmpty");
+const cartFooter = $("#cartFooter");
+const dialog = $("#messageDialog");
+const dialogContent = $("#dialogContent");
+const toast = $("#toast");
+
+const formatPrice = value =>
+  new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    maximumFractionDigits: 0
+  }).format(value);
+
+const discountPercent = product =>
+  Math.round((1 - product.price / product.oldPrice) * 100);
+
+function saveState() {
+  try {
+    localStorage.setItem("flipzone-cart", JSON.stringify(cart));
+    localStorage.setItem("flipzone-wishlist", JSON.stringify(wishlist));
+  } catch {
+    // The current session remains usable if browser storage is unavailable.
+  }
+}
+
+let toastTimer;
+
+function showToast(message) {
+  toast.textContent = message;
+  toast.classList.add("show");
+
+  clearTimeout(toastTimer);
+
+  toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2400);
+}
+
+// ========================================
+// PRODUCT LISTING
+// ========================================
+
+function getVisibleProducts() {
+  let result = PRODUCTS.filter(product => {
+    const categoryMatches =
+      activeCategory === "All" || product.category === activeCategory;
+
+    const searchMatches = [
+      product.name,
+      product.category,
+      product.badge
+    ].join(" ").toLowerCase().includes(searchTerm.toLowerCase());
+
+    const wishlistMatches =
+      !wishlistOnly || wishlist.includes(product.id);
+
+    return categoryMatches && searchMatches && wishlistMatches;
+  });
+
+  switch (sortMode) {
+    case "price-low":
+      result.sort((a, b) => a.price - b.price);
+      break;
+
+    case "price-high":
+      result.sort((a, b) => b.price - a.price);
+      break;
+
+    case "rating":
+      result.sort((a, b) => b.rating - a.rating);
+      break;
+
+    case "discount":
+      result.sort((a, b) => discountPercent(b) - discountPercent(a));
+      break;
+  }
+
+  return result;
+}
+
+function productCard(product) {
+  const liked = wishlist.includes(product.id);
+
+  return `
+    <article class="product-card">
+      <div class="product-image">
+        <img
+          src="${product.image}"
+          alt="${product.name}"
+          loading="lazy"
+          onerror="this.onerror=null;this.src='https://placehold.co/500x500/f1f3f6/2874f0?text=FlipZone';"
+        >
+
+        <span class="product-badge">${product.badge}</span>
+
+        <button
+          class="wishlist-heart ${liked ? "liked" : ""}"
+          data-wishlist="${product.id}"
+          aria-label="${liked ? "Remove from wishlist" : "Add to wishlist"}"
+          aria-pressed="${liked}"
+        >${liked ? "♥" : "♡"}</button>
+      </div>
+
+      <div class="product-info">
+        <div class="product-category">${product.category}</div>
+        <h3 class="product-name">${product.name}</h3>
+
+        <div class="rating-line">
+          <span class="rating-badge">${product.rating.toFixed(1)} ★</span>
+          <span>(${product.reviews})</span>
+        </div>
+
+        <div class="price-line">
+          <span class="price">${formatPrice(product.price)}</span>
+          <span class="old-price">${formatPrice(product.oldPrice)}</span>
+          <span class="discount">${discountPercent(product)}% off</span>
+        </div>
+
+        <button class="add-button" data-add="${product.id}">
+          ADD TO CART
+        </button>
+      </div>
+    </article>
+  `;
+}
+
+function renderProducts() {
+  const products = getVisibleProducts();
+
+  productGrid.innerHTML = products.map(productCard).join("");
+
+  const noResults = products.length === 0;
+
+  emptyState.classList.toggle("hidden", !noResults);
+  productGrid.classList.toggle("hidden", noResults);
+
+  if (wishlistOnly) {
+    $("#productsTitle").textContent = "My Wishlist";
+    $("#productSubtitle").textContent = "Your saved favourite products.";
+  } else if (searchTerm) {
+    $("#productsTitle").textContent = "Search Results";
+    $("#productSubtitle").textContent =
+      `${products.length} product(s) found.`;
+  } else if (activeCategory !== "All") {
+    $("#productsTitle").textContent =
+      activeCategory === "Home" ? "Home & Living" : activeCategory;
+
+    $("#productSubtitle").textContent =
+      "Explore products in this category.";
+  } else {
+    $("#productsTitle").textContent = "Best of Shopping";
+    $("#productSubtitle").textContent =
+      "Popular picks at prices you'll love.";
+  }
+
+  document.querySelectorAll(".filter-chip").forEach(button => {
+    button.classList.toggle(
+      "active",
+      button.dataset.category === activeCategory && !wishlistOnly
+    );
+  });
+}
+
+// ========================================
+// CATEGORY NAVIGATION
+// ========================================
+
+function setCategory(category) {
+  activeCategory = category;
+  wishlistOnly = false;
+
+  renderProducts();
+
+  $("#categoryNav").classList.remove("open");
+  $("#menuToggle").setAttribute("aria-expanded", "false");
+
+  $("#products").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+}
+
+document.querySelectorAll("[data-category]").forEach(button => {
+  button.addEventListener("click", () => {
+    setCategory(button.dataset.category);
+  });
+});
+
+document.querySelectorAll("[data-footer-category]").forEach(link => {
+  link.addEventListener("click", () => {
+    setCategory(link.dataset.footerCategory);
+  });
+});
+
+// ========================================
+// SEARCH AND SORT
+// ========================================
+
+$("#searchForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  searchTerm = searchInput.value.trim();
+  wishlistOnly = false;
+
+  renderProducts();
+
+  $("#products").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
+  if (getVisibleProducts().length === 0) {
+    showToast("No matching products found.");
+  }
+});
+
+searchInput.addEventListener("input", () => {
+  searchTerm = searchInput.value.trim();
+  wishlistOnly = false;
+  renderProducts();
+});
+
+sortSelect.addEventListener("change", () => {
+  sortMode = sortSelect.value;
+  renderProducts();
+});
+
+$("#resetButton").addEventListener("click", () => {
+  activeCategory = "All";
+  searchTerm = "";
+  sortMode = "featured";
+  wishlistOnly = false;
+
+  searchInput.value = "";
+  sortSelect.value = "featured";
+
+  renderProducts();
+});
+
+// ========================================
+// WISHLIST
+// ========================================
+
+function toggleWishlist(id) {
+  const product = PRODUCTS.find(item => item.id === id);
+
+  if (!product) return;
+
+  if (wishlist.includes(id)) {
+    wishlist = wishlist.filter(item => item !== id);
+    showToast("Removed from wishlist.");
+  } else {
+    wishlist.push(id);
+    showToast("Added to wishlist ♥");
+  }
+
+  saveState();
+  updateCounts();
+  renderProducts();
+}
+
+$("#wishlistButton").addEventListener("click", () => {
+  wishlistOnly = !wishlistOnly;
+  activeCategory = "All";
+  searchTerm = "";
+  searchInput.value = "";
+
+  renderProducts();
+
+  $("#products").scrollIntoView({
+    behavior: "smooth",
+    block: "start"
+  });
+
+  if (wishlistOnly && wishlist.length === 0) {
+    showToast("Your wishlist is empty.");
+  }
+});
+
+// ========================================
+// CART FUNCTIONS
+// ========================================
+
+function findProduct(id) {
+  return PRODUCTS.find(product => product.id === id);
+}
+
+function cartQuantity() {
+  return cart.reduce((total, item) => total + item.quantity, 0);
+}
+
+function cartSubtotal() {
+  return cart.reduce((total, item) => {
+    const product = findProduct(item.id);
+    return total + (product ? product.price * item.quantity : 0);
+  }, 0);
+}
+
+function updateCounts() {
+  $("#cartCount").textContent = cartQuantity();
+  $("#wishlistCount").textContent = wishlist.length;
+  $("#drawerCount").textContent = `(${cartQuantity()})`;
+}
+
+function addToCart(id) {
+  const product = findProduct(id);
+
+  if (!product) return;
+
+  const existing = cart.find(item => item.id === id);
+
+  if (existing) {
+    if (existing.quantity >= 99) {
+      showToast("Maximum quantity is 99.");
+      return;
+    }
+
+    existing.quantity += 1;
+  } else {
+    cart.push({ id, quantity: 1 });
+  }
+
+  saveState();
+  renderCart();
+  showToast(`${product.name} added to cart.`);
+}
+
+function changeQuantity(id, amount) {
+  const item = cart.find(entry => entry.id === id);
+
+  if (!item) return;
+
+  item.quantity += amount;
+
+  if (item.quantity <= 0) {
+    cart = cart.filter(entry => entry.id !== id);
+  } else if (item.quantity > 99) {
+    item.quantity = 99;
+    showToast("Maximum quantity is 99.");
+  }
+
+  saveState();
+  renderCart();
+}
+
+function removeItem(id) {
+  cart = cart.filter(item => item.id !== id);
+
+  saveState();
+  renderCart();
+  showToast("Product removed from cart.");
+}
+
+function renderCart() {
+  updateCounts();
+
+  const isEmpty = cart.length === 0;
+
+  cartEmpty.classList.toggle("hidden", !isEmpty);
+  cartFooter.classList.toggle("hidden", isEmpty);
+  cartItems.classList.toggle("hidden", isEmpty);
+
+  cartItems.innerHTML = cart.map(item => {
+    const product = findProduct(item.id);
+
+    if (!product) return "";
+
+    return `
+      <div class="cart-item">
+        <img
+          src="${product.image}"
+          alt="${product.name}"
+          onerror="this.onerror=null;this.src='https://placehold.co/200x200/f1f3f6/2874f0?text=Product';"
+        >
+
+        <div>
+          <h4>${product.name}</h4>
+          <div class="item-price">
+            ${formatPrice(product.price * item.quantity)}
+          </div>
+
+          <div>
+            <div class="quantity-control">
+              <button data-qty="${product.id}" data-change="-1"
+                aria-label="Decrease quantity">−</button>
+              <span>${item.quantity}</span>
+              <button data-qty="${product.id}" data-change="1"
+                aria-label="Increase quantity">+</button>
+            </div>
+
+            <button class="remove-item" data-remove="${product.id}">
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  const subtotal = cartSubtotal();
+  const delivery = subtotal === 0 || subtotal >= 999 ? 0 : 49;
+
+  $("#cartSubtotal").textContent = formatPrice(subtotal);
+  $("#deliveryPrice").textContent =
+    delivery === 0 ? "FREE" : formatPrice(delivery);
+  $("#cartTotal").textContent = formatPrice(subtotal + delivery);
+
+  $("#deliveryNote").textContent =
+    subtotal >= 999
+      ? "Congratulations! You've unlocked free delivery."
+      : `Add ${formatPrice(999 - subtotal)} more for free delivery.`;
+}
+
+productGrid.addEventListener("click", event => {
+  const addButton = event.target.closest("[data-add]");
+  const wishlistButton = event.target.closest("[data-wishlist]");
+
+  if (addButton) {
+    addToCart(Number(addButton.dataset.add));
+  }
+
+  if (wishlistButton) {
+    toggleWishlist(Number(wishlistButton.dataset.wishlist));
+  }
+});
+
+cartItems.addEventListener("click", event => {
+  const quantityButton = event.target.closest("[data-qty]");
+  const removeButton = event.target.closest("[data-remove]");
+
+  if (quantityButton) {
+    changeQuantity(
+      Number(quantityButton.dataset.qty),
+      Number(quantityButton.dataset.change)
+    );
+  }
+
+  if (removeButton) {
+    removeItem(Number(removeButton.dataset.remove));
+  }
+});
+
+// ========================================
+// OPEN AND CLOSE CART
+// ========================================
+
+function openCart() {
+  cartDrawer.classList.add("open");
+  overlay.classList.add("active");
+  document.body.classList.add("drawer-open");
+  cartDrawer.setAttribute("aria-hidden", "false");
+  $("#closeCart").focus();
+}
+
+function closeCart() {
+  cartDrawer.classList.remove("open");
+  overlay.classList.remove("active");
+  document.body.classList.remove("drawer-open");
+  cartDrawer.setAttribute("aria-hidden", "true");
+}
+
+$("#cartButton").addEventListener("click", openCart);
+$("#closeCart").addEventListener("click", closeCart);
+$("#continueShopping").addEventListener("click", closeCart);
+overlay.addEventListener("click", closeCart);
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeCart();
+
+    if (dialog.open) {
+      dialog.close();
+    }
+  }
+});
+
+// ========================================
+// CHECKOUT DEMO
+// ========================================
+
+$("#checkoutButton").addEventListener("click", () => {
+  if (cart.length === 0) {
+    showToast("Your cart is empty.");
+    return;
+  }
+
+  closeCart();
+
+  const subtotal = cartSubtotal();
+  const delivery = subtotal >= 999 ? 0 : 49;
+
+  dialogContent.innerHTML = `
+    <span class="section-kicker">FLIPZONE CHECKOUT</span>
+    <h2>Order Summary</h2>
+    <p>This is a demonstration checkout. No real order or payment will be processed.</p>
+
+    <div class="price-row">
+      <span>Items</span><b>${cartQuantity()}</b>
+    </div>
+    <div class="price-row">
+      <span>Subtotal</span><b>${formatPrice(subtotal)}</b>
+    </div>
+    <div class="price-row">
+      <span>Delivery</span><b>${delivery === 0 ? "FREE" : formatPrice(delivery)}</b>
+    </div>
+    <div class="price-row total-row">
+      <span>Total</span><b>${formatPrice(subtotal + delivery)}</b>
+    </div>
+
+    <button class="primary-button" id="confirmOrder">
+      Complete Demo Order
+    </button>
+  `;
+
+  dialog.showModal();
+});
+
+$("#closeDialog").addEventListener("click", () => dialog.close());
+
+dialog.addEventListener("click", event => {
+  if (event.target === dialog) dialog.close();
+});
+
+dialogContent.addEventListener("click", event => {
+  if (event.target.closest("#confirmOrder")) {
+    cart = [];
+
+    saveState();
+    renderCart();
+
+    dialog.close();
+    showToast("Demo order completed. No payment was taken.");
+  }
+});
+
+// ========================================
+// LOGIN DEMO
+// ========================================
+
+$("#accountButton").addEventListener("click", () => {
+  dialogContent.innerHTML = `
+    <span class="section-kicker">WELCOME TO FLIPZONE</span>
+    <h2>Your shopping account</h2>
+    <p>Sign-in, registration, customer profiles and order history can be connected to a backend service.</p>
+    <button class="primary-button" id="continueAccount">
+      Continue Shopping
+    </button>
+  `;
+
+  dialog.showModal();
+});
+
+dialogContent.addEventListener("click", event => {
+  if (event.target.closest("#continueAccount")) {
+    dialog.close();
+  }
+});
+
+// ========================================
+// NEWSLETTER DEMO
+// ========================================
+
+$("#newsletterForm").addEventListener("submit", event => {
+  event.preventDefault();
+
+  const emailInput = $("#emailInput");
+
+  if (!emailInput.checkValidity()) {
+    emailInput.reportValidity();
+    return;
+  }
+
+  $("#newsletterMessage").textContent =
+    "Thank you! Newsletter signup is currently a demo.";
+
+  emailInput.value = "";
+});
+
+// ========================================
+// FOOTER INFORMATION
+// ========================================
+
+const footerContent = {
+  Shipping: {
+    title: "Shipping Information",
+    text: "Sample policy: orders of ₹999 or more qualify for free delivery. Other orders show a demonstration delivery fee of ₹49."
+  },
+  Returns: {
+    title: "Returns & Refunds",
+    text: "This is a demonstration storefront. Configure your actual return eligibility, return window and refund policies before launching."
+  },
+  FAQ: {
+    title: "Frequently Asked Questions",
+    text: "All products, prices, discounts and ratings are illustrative sample data. Live inventory and actual reviews are not connected."
+  },
+  Contact: {
+    title: "Contact Us",
+    text: "Business contact details have not been configured. Add your real support email, phone number and operating hours before publishing."
+  }
+};
+
+document.querySelectorAll("[data-info]").forEach(link => {
+  link.addEventListener("click", event => {
+    event.preventDefault();
+
+    const info = footerContent[link.dataset.info];
+
+    if (!info) return;
+
+    dialogContent.innerHTML = `
+      <span class="section-kicker">CUSTOMER SUPPORT</span>
+      <h2>${info.title}</h2>
+      <p>${info.text}</p>
+      <button class="primary-button" id="closeInfo">Got it</button>
+    `;
+
+    dialog.showModal();
+  });
+});
+
+dialogContent.addEventListener("click", event => {
+  if (event.target.closest("#closeInfo")) {
+    dialog.close();
+  }
+});
+
+// ========================================
+// MOBILE NAVIGATION
+// ========================================
+
+$("#menuToggle").addEventListener("click", () => {
+  const nav = $("#categoryNav");
+  const open = nav.classList.toggle("open");
+
+  $("#menuToggle").setAttribute("aria-expanded", String(open));
+});
+
+// ========================================
+// INITIALIZE
+// ========================================
+
+$("#currentYear").textContent = new Date().getFullYear();
+
+renderProducts();
+renderCart();
